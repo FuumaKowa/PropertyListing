@@ -15,76 +15,76 @@ export function Logo({ className = "h-10", showText = true }: LogoProps) {
     return (
       <svg
         className={className}
-        viewBox="0 0 240 240"
+        viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Diamond (Tilted grey square) */}
         <rect
-          x="65"
-          y="65"
-          width="110"
-          height="110"
-          fill="#B2B4B6"
-          transform="rotate(45 120 120)"
+          x="14.65"
+          y="14.65"
+          width="70.7"
+          height="70.7"
+          fill="#BEB5BE"
+          transform="rotate(45 50 50)"
         />
         
         {/* Globe wireframe */}
-        <g transform="rotate(-15 120 120)">
+        <g transform="rotate(-15 50 50)">
           {/* Outermost circle */}
           <circle
-            cx="120"
-            cy="120"
-            r="55"
+            cx="50"
+            cy="50"
+            r="38"
             fill="none"
-            stroke="#0031B0"
-            strokeWidth="5"
+            stroke="#0020B0"
+            strokeWidth="4.5"
           />
           {/* Longitudes / vertical ellipses */}
           <ellipse
-            cx="120"
-            cy="120"
-            rx="25"
-            ry="55"
+            cx="50"
+            cy="50"
+            rx="18"
+            ry="38"
             fill="none"
-            stroke="#0031B0"
+            stroke="#0020B0"
             strokeWidth="3.5"
           />
           <ellipse
-            cx="120"
-            cy="120"
-            rx="42"
-            ry="55"
+            cx="50"
+            cy="50"
+            rx="29"
+            ry="38"
             fill="none"
-            stroke="#0031B0"
+            stroke="#0020B0"
             strokeWidth="2.5"
           />
           {/* Equator */}
           <line
-            x1="65"
-            y1="120"
-            x2="175"
-            y2="120"
-            stroke="#0031B0"
+            x1="12"
+            y1="50"
+            x2="88"
+            y2="50"
+            stroke="#0020B0"
             strokeWidth="4"
           />
           {/* Latitudes / horizontal ellipses */}
           <ellipse
-            cx="120"
-            cy="120"
-            rx="55"
-            ry="25"
+            cx="50"
+            cy="50"
+            rx="38"
+            ry="18"
             fill="none"
-            stroke="#0031B0"
+            stroke="#0020B0"
             strokeWidth="3.5"
           />
           <ellipse
-            cx="120"
-            cy="120"
-            rx="55"
-            ry="40"
+            cx="50"
+            cy="50"
+            rx="38"
+            ry="28"
             fill="none"
-            stroke="#0031B0"
+            stroke="#0020B0"
             strokeWidth="2"
           />
         </g>
@@ -107,7 +107,7 @@ export function Logo({ className = "h-10", showText = true }: LogoProps) {
         y="105"
         width="150"
         height="150"
-        fill="#B2B4B6"
+        fill="#BEB5BE"
         transform="rotate(45 250 180)"
       />
       
@@ -117,56 +117,56 @@ export function Logo({ className = "h-10", showText = true }: LogoProps) {
         <circle
           cx="250"
           cy="180"
-          r="75"
+          r="80"
           fill="none"
-          stroke="#0031B0"
-          strokeWidth="7"
+          stroke="#0020B0"
+          strokeWidth="8"
         />
         {/* Longitudes / vertical ellipses */}
         <ellipse
           cx="250"
           cy="180"
-          rx="35"
-          ry="75"
+          rx="38"
+          ry="80"
           fill="none"
-          stroke="#0031B0"
-          strokeWidth="5"
+          stroke="#0020B0"
+          strokeWidth="6"
         />
         <ellipse
           cx="250"
           cy="180"
-          rx="58"
-          ry="75"
+          rx="62"
+          ry="80"
           fill="none"
-          stroke="#0031B0"
+          stroke="#0020B0"
           strokeWidth="3"
         />
         {/* Equator */}
         <line
-          x1="175"
+          x1="170"
           y1="180"
-          x2="325"
+          x2="330"
           y2="180"
-          stroke="#0031B0"
-          strokeWidth="6"
+          stroke="#0020B0"
+          strokeWidth="6.5"
         />
         {/* Latitudes / horizontal ellipses */}
         <ellipse
           cx="250"
           cy="180"
-          rx="75"
-          ry="35"
+          rx="80"
+          ry="38"
           fill="none"
-          stroke="#0031B0"
-          strokeWidth="5"
+          stroke="#0020B0"
+          strokeWidth="6"
         />
         <ellipse
           cx="250"
           cy="180"
-          rx="75"
-          ry="55"
+          rx="80"
+          ry="58"
           fill="none"
-          stroke="#0031B0"
+          stroke="#0020B0"
           strokeWidth="3"
         />
       </g>
@@ -181,7 +181,7 @@ export function Logo({ className = "h-10", showText = true }: LogoProps) {
         fontWeight="900"
         fontSize="54"
         fill="#FFFFFF"
-        stroke="#0031B0"
+        stroke="#0020B0"
         strokeWidth="4.5"
         letterSpacing="2"
       >
@@ -194,7 +194,7 @@ export function Logo({ className = "h-10", showText = true }: LogoProps) {
         y="350"
         width="400"
         height="34"
-        fill="#0031B0"
+        fill="#0020B0"
       />
 
       {/* White spaced out text "consultant sdn. bhd." inside the bar */}
