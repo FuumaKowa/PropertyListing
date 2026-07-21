@@ -1,6 +1,7 @@
 import React from 'react';
-import { Home, ShieldCheck, FileSpreadsheet, Building2 } from 'lucide-react';
+import { Home, ShieldCheck, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   currentTab: 'client' | 'admin';
@@ -14,17 +15,7 @@ export default function Navbar({ currentTab, onChangeTab, inquiryCount }: Navbar
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand Logo */}
         <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => onChangeTab('client')}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md transition-all group-hover:scale-105 group-hover:bg-blue-700">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="font-sans text-lg font-black tracking-tight text-slate-800 leading-tight">
-              PRIME<span className="text-blue-600 font-bold">ESTATE</span>
-            </h1>
-            <p className="font-mono text-[9px] font-bold tracking-wider text-slate-400 uppercase leading-none">
-              Exclusive Listings
-            </p>
-          </div>
+          <Logo className="h-10 sm:h-12 w-auto transition-all group-hover:scale-[1.02]" showText={true} />
         </div>
 
         {/* Navigation Controls */}

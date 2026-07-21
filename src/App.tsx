@@ -3,6 +3,7 @@ import { useProperties } from './useProperties';
 import { useInquiries } from './useInquiries';
 import Navbar from './components/Navbar';
 import PropertyCard from './components/PropertyCard';
+import { Logo } from './components/Logo';
 import PropertyDetailsModal from './components/PropertyDetailsModal';
 import AdminPanel from './components/AdminPanel';
 import { Property } from './types';
@@ -1137,16 +1138,11 @@ export default function App() {
       <footer className="border-t border-slate-200 bg-white py-12 text-slate-500">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
-              <Building2 className="h-4.5 w-4.5" />
-            </div>
-            <span className="font-sans text-sm font-bold tracking-tight text-slate-900">
-              PRIME<span className="text-slate-500 font-medium">ESTATE</span>
-            </span>
+            <Logo className="h-8 w-auto" showText={true} />
           </div>
 
           <p className="font-sans text-xs text-slate-400 font-medium">
-            © 2026 PrimeEstate Portals. Meticulously designed for luxury listings. All rights reserved.
+            © 2026 Nilai Harta Consultant Sdn Bhd. Property Listings Portal. All rights reserved.
           </p>
 
           <div className="flex items-center gap-5 text-xs font-bold text-slate-500">
