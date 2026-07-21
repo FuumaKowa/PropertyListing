@@ -23,6 +23,7 @@ const STORAGE_KEY = 'prime_properties_inquiries';
 export function useInquiries() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -100,11 +101,35 @@ export function useInquiries() {
     }
   };
 
+  const refreshInquiries = async () => {
+    setRefreshing(true);
+    try {
+      if (isFirebaseConfigured) {
+        const dbInquiries = await getDbInquiries();
+        if (dbInquiries) {
+          setInquiries(dbInquiries);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(dbInquiries));
+        }
+      } else {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          setInquiries(JSON.parse(stored));
+        }
+      }
+    } catch (e) {
+      console.error('Manual inquiries refresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return {
     inquiries,
     loading,
+    refreshing,
     addInquiry,
-    clearInquiries
+    clearInquiries,
+    refreshInquiries
   };
 }
 

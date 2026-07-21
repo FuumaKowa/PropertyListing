@@ -31,6 +31,7 @@ export function useProperties() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [agentProfile, setAgentProfile] = useState<AgentProfile>(DEFAULT_AGENT);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [firebaseStatus, setFirebaseStatus] = useState<'loading' | 'connected' | 'offline' | 'error' | 'not_configured'>('loading');
 
   useEffect(() => {
@@ -277,6 +278,68 @@ export function useProperties() {
     }
   };
 
+  const refreshInventory = async () => {
+    setRefreshing(true);
+    try {
+      let activeAgent = agentProfile;
+      
+      // 1. If Firebase is configured, fetch the latest database state
+      if (isFirebaseConfigured) {
+        setFirebaseStatus('loading');
+        
+        // Try refreshing Agent Profile
+        try {
+          const dbAgent = await getDbAgentProfile();
+          if (dbAgent) {
+            activeAgent = dbAgent;
+            setAgentProfile(dbAgent);
+            localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(dbAgent));
+          }
+        } catch (err: any) {
+          console.warn('Failed to refresh agent profile:', err);
+        }
+
+        // Try refreshing Properties
+        const dbProperties = await getDbProperties();
+        if (dbProperties && dbProperties.length > 0) {
+          const synced = dbProperties.map(p => ({
+            ...p,
+            agentName: activeAgent.name,
+            agentPhone: activeAgent.phone,
+            agentEmail: activeAgent.email,
+            agentPhoto: activeAgent.photo
+          }));
+          setProperties(synced);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
+        } else {
+          // If remote database is empty, push our local properties up to seed it
+          const localStored = localStorage.getItem(STORAGE_KEY);
+          const toSeed = localStored ? JSON.parse(localStored) : properties;
+          for (const p of toSeed) {
+            await saveDbProperty(p);
+          }
+        }
+        setFirebaseStatus('connected');
+      } else {
+        // Local only: load from localStorage
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          setProperties(JSON.parse(stored));
+        }
+      }
+    } catch (error: any) {
+      console.error('Manual inventory refresh failed:', error);
+      const errMsg = error.message || String(error);
+      if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed-precondition') || errMsg.includes('Permission denied')) {
+        setFirebaseStatus('offline');
+      } else {
+        setFirebaseStatus('error');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return {
     properties,
     agentProfile,
@@ -287,7 +350,9 @@ export function useProperties() {
     deleteProperty,
     getPropertyById,
     resetToDefault,
-    updateAgentProfile
+    updateAgentProfile,
+    refreshing,
+    refreshInventory
   };
 }
 

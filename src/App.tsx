@@ -40,13 +40,17 @@ export default function App() {
     deleteProperty,
     resetToDefault,
     updateAgentProfile,
-    firebaseStatus
+    firebaseStatus,
+    refreshing: refreshingProperties,
+    refreshInventory
   } = useProperties();
 
   const {
     inquiries,
     addInquiry,
-    clearInquiries
+    clearInquiries,
+    refreshInquiries,
+    refreshing: refreshingInquiries
   } = useInquiries();
 
   // Navigation state
@@ -1108,6 +1112,10 @@ export default function App() {
                 onResetToDefault={resetToDefault}
                 onClearInquiries={clearInquiries}
                 firebaseStatus={firebaseStatus}
+                isRefreshing={refreshingProperties || refreshingInquiries}
+                onRefresh={async () => {
+                  await Promise.all([refreshInventory(), refreshInquiries()]);
+                }}
               />
             </motion.div>
           )}

@@ -27,6 +27,8 @@ interface AdminPanelProps {
   onResetToDefault: () => void;
   onClearInquiries: () => void;
   firebaseStatus?: 'loading' | 'connected' | 'offline' | 'error' | 'not_configured';
+  isRefreshing?: boolean;
+  onRefresh?: () => Promise<void>;
 }
 
 const COMMON_AMENITIES = [
@@ -45,7 +47,9 @@ export default function AdminPanel({
   onDeleteProperty,
   onResetToDefault,
   onClearInquiries,
-  firebaseStatus = 'not_configured'
+  firebaseStatus = 'not_configured',
+  isRefreshing = false,
+  onRefresh
 }: AdminPanelProps) {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -391,14 +395,14 @@ export default function AdminPanel({
             {firebaseStatus === 'loading' && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 <RefreshCw className="h-3 w-3 text-blue-500 animate-spin" />
-                <span>Connecting to Cloud Firestore...</span>
+                <span>Connecting to Realtime Database...</span>
               </span>
             )}
             {firebaseStatus === 'connected' && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
                 <Database className="h-3 w-3 text-emerald-500" />
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Live Cloud Firestore Active</span>
+                <span>Live Realtime Database Active</span>
               </span>
             )}
             {firebaseStatus === 'offline' && (
@@ -450,14 +454,29 @@ export default function AdminPanel({
 
           <button
             onClick={() => {
+              if (onRefresh) {
+                onRefresh();
+              }
+            }}
+            disabled={isRefreshing}
+            className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 text-slate-700 font-bold text-xs py-2.5 px-3.5 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:cursor-not-allowed"
+            title="Fetch latest listings and inquiries from Realtime Database"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh Inventory'}</span>
+          </button>
+
+          <button
+            onClick={() => {
               if (confirm('Are you sure you want to restore the listings database to the default pristine sample dataset? This will overwrite your modifications.')) {
                 onResetToDefault();
               }
             }}
             className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs py-2.5 px-3.5 transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Reset to original mock database listings"
           >
-            <RefreshCw className="h-3.5 w-3.5 text-slate-400" />
-            <span>Reset Inventory</span>
+            <Layers className="h-3.5 w-3.5 text-slate-400" />
+            <span>Reset to Default Sample</span>
           </button>
         </div>
       </div>
@@ -530,6 +549,7 @@ export default function AdminPanel({
                       <th className="px-6 py-4">Price</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Agent</th>
+                      <th className="px-6 py-4">Database</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -612,6 +632,34 @@ export default function AdminPanel({
                             />
                             <span className="text-xs font-semibold text-slate-700">{prop.agentName}</span>
                           </div>
+                        </td>
+
+                        {/* Database Sync Indicator */}
+                        <td className="px-6 py-4">
+                          {firebaseStatus === 'connected' ? (
+                            <div className="flex items-center gap-1.5" title="Saved to Realtime Database">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]"></span>
+                              </span>
+                              <span className="text-[10px] font-semibold text-emerald-600 tracking-wide">Live</span>
+                            </div>
+                          ) : firebaseStatus === 'offline' || firebaseStatus === 'error' ? (
+                            <div className="flex items-center gap-1.5" title="Operating offline - will sync when back online">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.9)]"></span>
+                              </span>
+                              <span className="text-[10px] font-semibold text-amber-600 tracking-wide">Pending</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5" title="Saved to Local Browser Storage (configure Firebase secrets to persist in cloud!)">
+                              <span className="relative flex h-2 w-2">
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]"></span>
+                              </span>
+                              <span className="text-[10px] font-semibold text-rose-500 tracking-wide">Local</span>
+                            </div>
+                          )}
                         </td>
 
                         {/* CRUD actions */}
