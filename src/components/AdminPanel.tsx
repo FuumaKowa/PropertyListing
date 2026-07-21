@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, FormEvent, DragEvent, ChangeEvent } from 'react';
-import { Plus, Edit, Trash2, ShieldCheck, Mail, Phone, Calendar, Upload, Link2, Check, Lock, ChevronRight, RefreshCw, Layers, ArrowLeftRight, User, KeySquare, Database, CloudOff } from 'lucide-react';
+import { Plus, Edit, Trash2, ShieldCheck, Mail, Phone, Calendar, Upload, Link2, Check, Lock, ChevronRight, RefreshCw, Layers, ArrowLeftRight, User, KeySquare, Database, CloudOff, Image, Eye, Images, X } from 'lucide-react';
 import { Property, PropertyFilters } from '../types';
 import { PRESET_IMAGES } from '../initialData';
 import { motion, AnimatePresence } from 'motion/react';
@@ -105,6 +105,15 @@ export default function AdminPanel({
   const [status, setStatus] = useState<Property['status']>('available');
   const [featured, setFeatured] = useState(false);
 
+  // Additional pictures state
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [newAdditionalUrl, setNewAdditionalUrl] = useState('');
+  const additionalFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Lightbox / Gallery Preview states
+  const [selectedPreviewProperty, setSelectedPreviewProperty] = useState<Property | null>(null);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
+
   // Image Source Option: 'preset' | 'url' | 'upload'
   const [imageOption, setImageOption] = useState<'preset' | 'url' | 'upload'>('preset');
   const [selectedPresetUrl, setSelectedPresetUrl] = useState(PRESET_IMAGES[0].url);
@@ -152,6 +161,7 @@ export default function AdminPanel({
     setStatus(prop.status);
     setFeatured(prop.featured || false);
     setSelectedAmenities(prop.amenities);
+    setAdditionalImages(prop.additionalImages || []);
 
     // Image source binding
     const matchedPreset = PRESET_IMAGES.find(pi => pi.url === prop.imageUrl);
@@ -189,6 +199,7 @@ export default function AdminPanel({
     setSelectedPresetUrl(PRESET_IMAGES[0].url);
     setCustomImageUrl('');
     setUploadedBase64('');
+    setAdditionalImages([]);
     setIsFormOpen(true);
   };
 
@@ -197,6 +208,25 @@ export default function AdminPanel({
     const file = e.target.files?.[0];
     if (file) {
       processFile(file);
+    }
+  };
+
+  const handleAdditionalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('To optimize local storage performance, please select an image smaller than 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAdditionalImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -293,7 +323,7 @@ export default function AdminPanel({
       bathrooms: parseFloat(bathrooms),
       area: parseInt(area),
       imageUrl: finalImageUrl,
-      additionalImages: editingProperty?.additionalImages || [],
+      additionalImages: additionalImages,
       ...agentDetails,
       status,
       amenities: selectedAmenities,
@@ -305,7 +335,7 @@ export default function AdminPanel({
         ...payload,
         id: editingProperty.id,
         createdAt: editingProperty.createdAt,
-        additionalImages: editingProperty.additionalImages
+        additionalImages: additionalImages
       });
     } else {
       onAddProperty(payload);
@@ -559,12 +589,23 @@ export default function AdminPanel({
                         {/* Thumbnail & Title */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <img
-                              src={prop.imageUrl}
-                              alt={prop.title}
-                              className="h-12 w-16 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
-                              referrerPolicy="no-referrer"
-                            />
+                            <div className="relative shrink-0 group/thumb cursor-pointer" onClick={() => {
+                              setSelectedPreviewProperty(prop);
+                              setPreviewImageIndex(0);
+                            }} title="Click to view full image gallery">
+                              <img
+                                src={prop.imageUrl}
+                                alt={prop.title}
+                                className="h-12 w-16 rounded-lg object-cover bg-slate-100 border border-slate-200"
+                                referrerPolicy="no-referrer"
+                              />
+                              {prop.additionalImages && prop.additionalImages.length > 0 && (
+                                <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded-sm shadow-xs flex items-center gap-0.5">
+                                  <Images className="h-2.5 w-2.5" />
+                                  <span>+{prop.additionalImages.length}</span>
+                                </div>
+                              )}
+                            </div>
                             <div>
                               <div className="font-bold text-slate-800 line-clamp-1">{prop.title}</div>
                               <div className="flex gap-1.5 items-center mt-0.5">
@@ -665,6 +706,16 @@ export default function AdminPanel({
                         {/* CRUD actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedPreviewProperty(prop);
+                                setPreviewImageIndex(0);
+                              }}
+                              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-750 transition-colors cursor-pointer"
+                              title="View all pictures / gallery"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => openEditForm(prop)}
                               className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
@@ -1293,6 +1344,132 @@ export default function AdminPanel({
                   )}
                 </div>
 
+                {/* Additional Pictures Management */}
+                <div className="space-y-3.5 pt-4 border-t border-slate-200">
+                  <div>
+                    <h4 className="font-sans text-xs font-bold text-slate-400 uppercase tracking-wider pb-1 flex items-center gap-1.5">
+                      <Images className="h-3.5 w-3.5 text-blue-500" />
+                      Additional Gallery Pictures ({additionalImages.length})
+                    </h4>
+                    <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                      Manage supplementary photos for the client's interactive walkthrough gallery.
+                    </p>
+                  </div>
+
+                  {/* Additional Images Grid */}
+                  {additionalImages.length > 0 ? (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-2 border border-slate-150 rounded-lg bg-slate-50/50">
+                      {additionalImages.map((img, index) => (
+                        <div key={index} className="relative aspect-16/10 rounded-md overflow-hidden group border border-slate-200 shadow-2xs">
+                          <img src={img} alt={`Gallery ${index + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdditionalImages(additionalImages.filter((_, i) => i !== index));
+                              }}
+                              className="rounded bg-rose-600 hover:bg-rose-700 text-white p-1 shadow-md transition-colors cursor-pointer"
+                              title="Remove Image"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <span className="absolute bottom-1 right-1 bg-slate-900/80 rounded-xs px-1 text-[8px] font-bold text-white">
+                            #{index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg bg-slate-50/30">
+                      <p className="text-[11px] font-semibold text-slate-400">No additional images added yet.</p>
+                    </div>
+                  )}
+
+                  {/* Inputs to Add Additional Images */}
+                  <div className="space-y-2.5">
+                    {/* URL Add */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Add Image via Custom URL</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={newAdditionalUrl}
+                          onChange={(e) => setNewAdditionalUrl(e.target.value)}
+                          placeholder="https://example.com/extra-photo.jpg"
+                          className="flex-1 rounded-lg border border-slate-250 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 focus:outline-hidden text-slate-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = newAdditionalUrl.trim();
+                            if (trimmed) {
+                              setAdditionalImages([...additionalImages, trimmed]);
+                              setNewAdditionalUrl('');
+                            } else {
+                              alert('Please paste a valid image URL first.');
+                            }
+                          }}
+                          className="rounded-lg bg-slate-900 hover:bg-slate-950 text-white font-bold text-xs px-3.5 py-1.5 transition-colors cursor-pointer shrink-0"
+                        >
+                          Add URL
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* File Upload Add */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 text-left">
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Add Image via File Upload</label>
+                        <input
+                          type="file"
+                          ref={additionalFileInputRef}
+                          onChange={handleAdditionalFileChange}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => additionalFileInputRef.current?.click()}
+                          className="rounded-lg border border-slate-250 hover:bg-slate-50 text-slate-700 font-bold text-xs px-3 py-2 transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full"
+                        >
+                          <Upload className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Upload Local Image File</span>
+                        </button>
+                      </div>
+
+                      {/* Quick Presets selector */}
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Quick-Add Stock Presets</label>
+                        <div className="flex items-center gap-1 overflow-x-auto border border-slate-200 rounded-lg p-1 max-h-9 scrollbar-none bg-white">
+                          {PRESET_IMAGES.map((preset) => {
+                            const isAlreadyAdded = additionalImages.includes(preset.url);
+                            return (
+                              <button
+                                key={preset.url}
+                                type="button"
+                                onClick={() => {
+                                  if (!isAlreadyAdded) {
+                                    setAdditionalImages([...additionalImages, preset.url]);
+                                  } else {
+                                    alert('This preset is already in your gallery!');
+                                  }
+                                }}
+                                className={`relative h-6 w-9 rounded-sm overflow-hidden border cursor-pointer shrink-0 transition-transform active:scale-90 ${
+                                  isAlreadyAdded ? 'border-emerald-500 opacity-50' : 'border-slate-200 hover:border-slate-400'
+                                }`}
+                                title={`Click to add stock: ${preset.name}`}
+                              >
+                                <img src={preset.thumbnail} alt={preset.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Section 3: Amenities Checklist */}
                 <div className="space-y-3 pt-4 border-t border-slate-200">
                   <div>
@@ -1413,6 +1590,93 @@ export default function AdminPanel({
                 </div>
               </form>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox / Gallery Viewer for Admin */}
+      <AnimatePresence>
+        {selectedPreviewProperty && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-950/95 flex flex-col items-center justify-center p-4 backdrop-blur-md"
+            onClick={() => setSelectedPreviewProperty(null)}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedPreviewProperty(null)}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 transition-colors cursor-pointer z-20 border border-white/10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Lightbox Content Container */}
+            <div
+              className="relative max-w-4xl w-full flex flex-col gap-4 items-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Heading */}
+              <div className="text-center text-white mb-2">
+                <h3 className="font-sans text-lg font-black">{selectedPreviewProperty.title}</h3>
+                <p className="text-xs text-slate-450 mt-1 font-semibold uppercase tracking-wider">
+                  {selectedPreviewProperty.location}
+                </p>
+                <p className="text-xs text-slate-450 mt-0.5 font-medium">
+                  Picture {previewImageIndex + 1} of {[selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])].length}
+                </p>
+              </div>
+
+              {/* Main Image Stage */}
+              <div className="relative aspect-16/10 w-full max-h-[60vh] rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl">
+                <img
+                  src={[selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])][previewImageIndex]}
+                  alt="Gallery Preview"
+                  className="max-h-[60vh] w-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+
+                {/* Left/Right Navigation Arrows */}
+                {[selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])].length > 1 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const list = [selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])];
+                        setPreviewImageIndex((prev) => (prev - 1 + list.length) % list.length);
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-slate-950/65 hover:bg-slate-950/85 text-white rounded-full p-3 transition-colors cursor-pointer border border-white/10"
+                    >
+                      <ChevronRight className="h-5 w-5 rotate-180" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const list = [selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])];
+                        setPreviewImageIndex((prev) => (prev + 1) % list.length);
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-950/65 hover:bg-slate-950/85 text-white rounded-full p-3 transition-colors cursor-pointer border border-white/10"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Thumbnails list */}
+              <div className="flex gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
+                {[selectedPreviewProperty.imageUrl, ...(selectedPreviewProperty.additionalImages || [])].map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setPreviewImageIndex(idx)}
+                    className={`relative aspect-16/10 w-20 shrink-0 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
+                      previewImageIndex === idx ? 'border-blue-500 scale-95 shadow-md' : 'border-transparent opacity-50 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img} alt={`Thumb ${idx + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
