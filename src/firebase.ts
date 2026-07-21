@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  initializeFirestore, 
   collection, 
   doc, 
   getDocs, 
@@ -38,7 +38,10 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app);
+    // Forcing long polling guarantees connectivity inside highly restricted sandboxed iframe environments
+    db = initializeFirestore(app, {
+      experimentalForceLongPolling: true
+    });
   } catch (error) {
     console.error('Error initializing Firebase:', error);
   }
