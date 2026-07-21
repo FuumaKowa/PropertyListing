@@ -1,0 +1,6 @@
+{
+  "name": "Property Listings Portal",
+  "description": "A sleek, modern property listing website featuring a comprehensive client portal to search properties, view details, and contact agents, alongside an administrative CRUD dashboard to manage real estate inventory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
