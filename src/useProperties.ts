@@ -7,7 +7,8 @@ import {
   saveDbProperty, 
   deleteDbProperty, 
   getDbAgentProfile, 
-  saveDbAgentProfile 
+  saveDbAgentProfile,
+  subscribeDbProperties
 } from './firebase';
 
 const STORAGE_KEY = 'prime_properties_data_v2';
@@ -33,6 +34,7 @@ export function useProperties() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [firebaseStatus, setFirebaseStatus] = useState<'loading' | 'connected' | 'offline' | 'error' | 'not_configured'>('loading');
+  const [firebaseErrorMessage, setFirebaseErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -79,7 +81,7 @@ export function useProperties() {
       }
       setProperties(localProperties);
 
-      // 2. If Firebase is configured, try to asynchronously fetch the latest live database state to synchronize
+      // 2. If Firebase is configured, set up live real-time synchronization listener
       if (isFirebaseConfigured) {
         setFirebaseStatus('loading');
         try {
@@ -92,18 +94,15 @@ export function useProperties() {
               setAgentProfile(liveAgent);
               localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(liveAgent));
             } else {
-              // Write default agent to DB if database is currently empty
               await saveDbAgentProfile(activeAgent);
             }
           } catch (agentErr: any) {
             console.warn('Firebase Agent profile load failed/offline:', agentErr.message || agentErr);
-            // Proceed to properties regardless of agent profile success
           }
 
-          // Try to load Properties from Firebase
+          // Try initial properties fetch & seeding if empty
           const dbProperties = await getDbProperties();
           if (dbProperties && dbProperties.length > 0) {
-            // Ensure agent details are synchronized
             const synced = dbProperties.map(p => ({
               ...p,
               agentName: liveAgent.name,
@@ -114,16 +113,40 @@ export function useProperties() {
             setProperties(synced);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
           } else {
-            // Database is empty, seed it with our local properties
+            // Seed default properties if DB is empty
             for (const p of localProperties) {
               await saveDbProperty(p);
             }
           }
-          
+
           setFirebaseStatus('connected');
+          setFirebaseErrorMessage(null);
+
+          // Subscribe to real-time changes
+          const unsub = subscribeDbProperties(
+            (liveProps) => {
+              if (liveProps && liveProps.length > 0) {
+                setProperties(liveProps);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(liveProps));
+              }
+              setFirebaseStatus('connected');
+              setFirebaseErrorMessage(null);
+            },
+            (err) => {
+              const msg = err.message || String(err);
+              console.error('Realtime property listener error:', msg);
+              setFirebaseErrorMessage(msg);
+              setFirebaseStatus('offline');
+            }
+          );
+
+          if (unsub) {
+            return unsub;
+          }
         } catch (err: any) {
           const errMsg = err.message || String(err);
           console.error('Firebase synchronisation failed, running in Offline Fail-Safe mode:', errMsg);
+          setFirebaseErrorMessage(errMsg);
           
           if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed-precondition') || errMsg.includes('Permission denied')) {
             setFirebaseStatus('offline');
@@ -138,7 +161,16 @@ export function useProperties() {
       setLoading(false);
     }
 
-    loadData();
+    let unsubscribeFn: (() => void) | null = null;
+    loadData().then(unsub => {
+      if (typeof unsub === 'function') {
+        unsubscribeFn = unsub;
+      }
+    });
+
+    return () => {
+      if (unsubscribeFn) unsubscribeFn();
+    };
   }, []);
 
   const saveToStorage = async (updatedList: Property[]) => {
@@ -171,9 +203,12 @@ export function useProperties() {
             await saveDbProperty(p);
           }
           setFirebaseStatus('connected');
-        } catch (e) {
+          setFirebaseErrorMessage(null);
+        } catch (e: any) {
+          const errMsg = e.message || String(e);
           console.error('Failed to sync agent profile to Firebase (offline/error):', e);
           setFirebaseStatus('offline');
+          setFirebaseErrorMessage(errMsg);
         }
       }
     } catch (e) {
@@ -199,9 +234,12 @@ export function useProperties() {
       try {
         await saveDbProperty(propertyWithId);
         setFirebaseStatus('connected');
-      } catch (e) {
+        setFirebaseErrorMessage(null);
+      } catch (e: any) {
+        const errMsg = e.message || String(e);
         console.error('Failed to sync added property to Firebase:', e);
         setFirebaseStatus('offline');
+        setFirebaseErrorMessage(errMsg);
       }
     }
     return propertyWithId;
@@ -225,9 +263,12 @@ export function useProperties() {
       try {
         await saveDbProperty(updatedModel);
         setFirebaseStatus('connected');
-      } catch (e) {
+        setFirebaseErrorMessage(null);
+      } catch (e: any) {
+        const errMsg = e.message || String(e);
         console.error('Failed to sync updated property to Firebase:', e);
         setFirebaseStatus('offline');
+        setFirebaseErrorMessage(errMsg);
       }
     }
   };
@@ -240,9 +281,12 @@ export function useProperties() {
       try {
         await deleteDbProperty(id);
         setFirebaseStatus('connected');
-      } catch (e) {
+        setFirebaseErrorMessage(null);
+      } catch (e: any) {
+        const errMsg = e.message || String(e);
         console.error('Failed to sync property deletion to Firebase:', e);
         setFirebaseStatus('offline');
+        setFirebaseErrorMessage(errMsg);
       }
     }
   };
@@ -271,9 +315,12 @@ export function useProperties() {
           await saveDbProperty(p);
         }
         setFirebaseStatus('connected');
-      } catch (e) {
+        setFirebaseErrorMessage(null);
+      } catch (e: any) {
+        const errMsg = e.message || String(e);
         console.error('Failed to sync property reset to Firebase:', e);
         setFirebaseStatus('offline');
+        setFirebaseErrorMessage(errMsg);
       }
     }
   };
@@ -320,6 +367,7 @@ export function useProperties() {
           }
         }
         setFirebaseStatus('connected');
+        setFirebaseErrorMessage(null);
       } else {
         // Local only: load from localStorage
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -330,6 +378,7 @@ export function useProperties() {
     } catch (error: any) {
       console.error('Manual inventory refresh failed:', error);
       const errMsg = error.message || String(error);
+      setFirebaseErrorMessage(errMsg);
       if (errMsg.includes('offline') || errMsg.includes('network') || errMsg.includes('failed-precondition') || errMsg.includes('Permission denied')) {
         setFirebaseStatus('offline');
       } else {
@@ -345,6 +394,7 @@ export function useProperties() {
     agentProfile,
     loading,
     firebaseStatus,
+    firebaseErrorMessage,
     addProperty,
     updateProperty,
     deleteProperty,

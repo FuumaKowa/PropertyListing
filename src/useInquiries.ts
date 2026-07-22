@@ -3,7 +3,8 @@ import {
   isFirebaseConfigured, 
   getDbInquiries, 
   saveDbInquiry, 
-  clearDbInquiries as clearDbInquiriesApi 
+  clearDbInquiries as clearDbInquiriesApi,
+  subscribeDbInquiries
 } from './firebase';
 
 export interface Inquiry {
@@ -41,7 +42,7 @@ export function useInquiries() {
       }
       setInquiries(localInquiries);
 
-      // 2. If Firebase is configured, try to asynchronously fetch live inquiries
+      // 2. If Firebase is configured, set up live real-time subscription
       if (isFirebaseConfigured) {
         try {
           const dbInquiries = await getDbInquiries();
@@ -49,6 +50,15 @@ export function useInquiries() {
             setInquiries(dbInquiries);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(dbInquiries));
           }
+
+          const unsub = subscribeDbInquiries((liveInqs) => {
+            if (liveInqs) {
+              setInquiries(liveInqs);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(liveInqs));
+            }
+          });
+
+          if (unsub) return unsub;
         } catch (e) {
           console.error('Failed to load inquiries from Firebase, running in offline backup mode:', e);
         }
@@ -57,7 +67,16 @@ export function useInquiries() {
       setLoading(false);
     }
     
-    loadData();
+    let unsubscribeFn: (() => void) | null = null;
+    loadData().then(unsub => {
+      if (typeof unsub === 'function') {
+        unsubscribeFn = unsub;
+      }
+    });
+
+    return () => {
+      if (unsubscribeFn) unsubscribeFn();
+    };
   }, []);
 
   const saveToStorage = async (updatedList: Inquiry[]) => {

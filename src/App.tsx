@@ -42,6 +42,7 @@ export default function App() {
     resetToDefault,
     updateAgentProfile,
     firebaseStatus,
+    firebaseErrorMessage,
     refreshing: refreshingProperties,
     refreshInventory
   } = useProperties();
@@ -1113,6 +1114,7 @@ export default function App() {
                 onResetToDefault={resetToDefault}
                 onClearInquiries={clearInquiries}
                 firebaseStatus={firebaseStatus}
+                firebaseErrorMessage={firebaseErrorMessage}
                 isRefreshing={refreshingProperties || refreshingInquiries}
                 onRefresh={async () => {
                   await Promise.all([refreshInventory(), refreshInquiries()]);

@@ -5,6 +5,7 @@ import { PRESET_IMAGES } from '../initialData';
 import { motion, AnimatePresence } from 'motion/react';
 import { AgentProfile } from '../useProperties';
 import { isFirebaseConfigured } from '../firebase';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -27,6 +28,7 @@ interface AdminPanelProps {
   onResetToDefault: () => void;
   onClearInquiries: () => void;
   firebaseStatus?: 'loading' | 'connected' | 'offline' | 'error' | 'not_configured';
+  firebaseErrorMessage?: string | null;
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void>;
 }
@@ -48,6 +50,7 @@ export default function AdminPanel({
   onResetToDefault,
   onClearInquiries,
   firebaseStatus = 'not_configured',
+  firebaseErrorMessage = null,
   isRefreshing = false,
   onRefresh
 }: AdminPanelProps) {
@@ -211,41 +214,35 @@ export default function AdminPanel({
     }
   };
 
-  const handleAdditionalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAdditionalFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         alert('Please upload an image file.');
         return;
       }
-      if (file.size > 2 * 1024 * 1024) {
-        alert('To optimize local storage performance, please select an image smaller than 2MB.');
-        return;
+      try {
+        const compressedBase64 = await compressImageFile(file, 1200, 1200, 0.8);
+        setAdditionalImages(prev => [...prev, compressedBase64]);
+      } catch (err) {
+        console.error('Image compression error:', err);
+        alert('Failed to process image file.');
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAdditionalImages(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file.');
       return;
     }
-    // Limit to 2MB for safe localStorage allocation
-    if (file.size > 2 * 1024 * 1024) {
-      alert('To optimize local storage performance, please select an image smaller than 2MB.');
-      return;
+    try {
+      const compressedBase64 = await compressImageFile(file, 1200, 1200, 0.8);
+      setUploadedBase64(compressedBase64);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      alert('Failed to process image file.');
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setUploadedBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleDragOver = (e: DragEvent) => {
@@ -470,6 +467,44 @@ export default function AdminPanel({
               </div>
             )}
           </div>
+          {firebaseErrorMessage && (
+            <div className="mt-3.5 max-w-2xl p-4 rounded-xl border bg-rose-50/40 border-rose-200 text-xs text-slate-700">
+              <div className="flex items-start gap-2.5">
+                <CloudOff className="h-4.5 w-4.5 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-rose-950 font-sans">Database Synchronisation Failed</h4>
+                  <p className="text-[11px] text-rose-900 font-mono mt-1 bg-white border border-rose-100 p-2.5 rounded-lg overflow-x-auto shadow-xs">
+                    {firebaseErrorMessage}
+                  </p>
+                  <p className="mt-2 text-slate-600 leading-relaxed text-[11px] font-medium">
+                    💡 <strong>Diagnose & Resolution:</strong> This happens when your Firebase Realtime Database rules deny read or write permissions to the client.
+                  </p>
+                  <p className="mt-1.5 text-slate-500 leading-relaxed text-[11px]">
+                    To fix this: Go to your <strong>Firebase Console</strong> &gt; <strong>Realtime Database</strong> &gt; <strong>Rules</strong> tab, and set your security rules to allow read/write access:
+                  </p>
+                  <pre className="mt-2 p-3 bg-slate-900 text-slate-200 font-mono text-[10px] rounded-lg overflow-x-auto select-all shadow-inner">
+{`{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}`}
+                  </pre>
+                  <p className="mt-2 text-slate-500 leading-relaxed text-[11px]">
+                    Or, if this is a temporary development environment and you wish to bypass authorization entirely:
+                  </p>
+                  <pre className="mt-2 p-3 bg-slate-900 text-slate-200 font-mono text-[10px] rounded-lg overflow-x-auto select-all shadow-inner">
+{`{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Global Action Bar */}
@@ -880,14 +915,15 @@ export default function AdminPanel({
                       id="profile-photo-upload"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setProfilePhoto(reader.result as string);
-                          };
-                          reader.readAsDataURL(file);
+                          try {
+                            const compressed = await compressImageFile(file, 400, 400, 0.85);
+                            setProfilePhoto(compressed);
+                          } catch (err) {
+                            console.error('Failed to compress profile photo:', err);
+                          }
                         }
                       }}
                     />
