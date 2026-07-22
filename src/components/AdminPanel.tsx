@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AgentProfile } from '../useProperties';
 import { isFirebaseConfigured } from '../firebase';
 import { compressImageFile } from '../utils/imageCompressor';
+import ConfirmModal from './ConfirmModal';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -135,6 +136,11 @@ export default function AdminPanel({
   const [customAgentName, setCustomAgentName] = useState('');
   const [customAgentPhone, setCustomAgentPhone] = useState('');
   const [customAgentEmail, setCustomAgentEmail] = useState('');
+
+  // Custom Confirmation Modal States
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [isClearInquiriesConfirmOpen, setIsClearInquiriesConfirmOpen] = useState(false);
+  const [isResetDefaultConfirmOpen, setIsResetDefaultConfirmOpen] = useState(false);
 
   // Handle Passcode Submission
   const handleAuthSubmit = (e: FormEvent) => {
@@ -532,11 +538,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => {
-              if (confirm('Are you sure you want to restore the listings database to the default pristine sample dataset? This will overwrite your modifications.')) {
-                onResetToDefault();
-              }
-            }}
+            onClick={() => setIsResetDefaultConfirmOpen(true)}
             className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs py-2.5 px-3.5 transition-all flex items-center gap-1.5 cursor-pointer"
             title="Reset to original mock database listings"
           >
@@ -759,11 +761,7 @@ export default function AdminPanel({
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                  if (confirm(`Are you sure you want to delete listing "${prop.title}"? This cannot be undone.`)) {
-                                    onDeleteProperty(prop.id);
-                                  }
-                              }}
+                              onClick={() => setPropertyToDelete(prop)}
                               className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                               title="Delete listing"
                             >
@@ -794,11 +792,7 @@ export default function AdminPanel({
               </p>
               {inquiries.length > 0 && (
                 <button
-                  onClick={() => {
-                    if (confirm('Clear the inquiries queue history?')) {
-                      onClearInquiries();
-                    }
-                  }}
+                  onClick={() => setIsClearInquiriesConfirmOpen(true)}
                   className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                 >
                   Clear Queue History
@@ -1716,6 +1710,61 @@ export default function AdminPanel({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Delete Single Property Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!propertyToDelete}
+        title="Delete Property Listing"
+        subtitle="Permanent Database Action"
+        message={`Are you sure you want to delete listing "${propertyToDelete?.title}"? This property and its gallery media will be permanently removed.`}
+        confirmText="Delete Listing"
+        cancelText="Keep Listing"
+        variant="danger"
+        iconType="trash"
+        propertyPreview={propertyToDelete}
+        onConfirm={() => {
+          if (propertyToDelete) {
+            onDeleteProperty(propertyToDelete.id);
+            setPropertyToDelete(null);
+          }
+        }}
+        onClose={() => setPropertyToDelete(null)}
+      />
+
+      {/* Clear Inquiries Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isClearInquiriesConfirmOpen}
+        title="Clear Client Inquiries Queue"
+        subtitle="Inbox Queue Cleanup"
+        message="Are you sure you want to clear all historical client messages from your queue? This inquiry record history cannot be restored after clearing."
+        confirmText="Clear Queue"
+        cancelText="Keep Records"
+        variant="danger"
+        iconType="clear"
+        countBadge={inquiries.length}
+        onConfirm={() => {
+          onClearInquiries();
+          setIsClearInquiriesConfirmOpen(false);
+        }}
+        onClose={() => setIsClearInquiriesConfirmOpen(false)}
+      />
+
+      {/* Reset Database Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isResetDefaultConfirmOpen}
+        title="Restore Default Sample Dataset"
+        subtitle="Database Restore Warning"
+        message="Are you sure you want to restore the listings database to the default pristine sample dataset? This will overwrite your current inventory modifications with the original sample properties."
+        confirmText="Restore Sample Data"
+        cancelText="Cancel"
+        variant="warning"
+        iconType="reset"
+        onConfirm={() => {
+          onResetToDefault();
+          setIsResetDefaultConfirmOpen(false);
+        }}
+        onClose={() => setIsResetDefaultConfirmOpen(false)}
+      />
     </div>
   );
 }

@@ -42,6 +42,7 @@ export default function PropertyDetailsModal({ property, onClose, onSendInquiry 
   const [message, setMessage] = useState(`Hi, I am interested in "${property.title}" and would like to schedule a viewing or request more details. Thank you!`);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(15);
   const [mapMode, setMapMode] = useState<'street' | 'satellite'>('street');
 
@@ -49,8 +50,9 @@ export default function PropertyDetailsModal({ property, onClose, onSendInquiry 
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!clientName || !clientEmail || !clientPhone) {
-      alert('Please fill in all required fields.');
+      setFormError('Please complete all required fields.');
       return;
     }
 
@@ -353,6 +355,11 @@ export default function PropertyDetailsModal({ property, onClose, onSendInquiry 
                     onSubmit={handleSubmit}
                     className="space-y-3.5"
                   >
+                    {formError && (
+                      <div className="rounded-lg bg-rose-50 border border-rose-200/80 p-2.5 text-xs font-semibold text-rose-700">
+                        {formError}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-bold text-slate-600 mb-1">Your Name *</label>
                       <input
