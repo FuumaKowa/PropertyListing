@@ -138,6 +138,15 @@ export default function App() {
           }
         });
       }
+      if (p.address) {
+        const parts = p.address.split(',').map((s) => s.trim());
+        parts.forEach((part) => {
+          // Exclude pure street numbers or short digit strings
+          if (part && part.length > 1 && !/^\d+$/.test(part)) {
+            locSet.add(part);
+          }
+        });
+      }
     });
     return Array.from(locSet).sort();
   }, [properties]);
@@ -170,21 +179,28 @@ export default function App() {
   const filteredProperties = useMemo(() => {
     return properties
       .filter((prop) => {
-        // Search text: match in title, description, or location
+        // 1. Keyword search: match tokens across title, description, location, address, property type, amenities
         if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          const matchTitle = prop.title.toLowerCase().includes(query);
-          const matchDesc = prop.description.toLowerCase().includes(query);
-          const matchLoc = prop.location.toLowerCase().includes(query);
-          if (!matchTitle && !matchDesc && !matchLoc) return false;
+          const queryTerms = searchQuery
+            .toLowerCase()
+            .replace(/[,.-]/g, ' ')
+            .split(/\s+/)
+            .filter(Boolean);
+
+          const fullSearchableText = `${prop.title} ${prop.description} ${prop.location} ${prop.address || ''} ${prop.propertyType} ${prop.type} ${prop.amenities ? prop.amenities.join(' ') : ''}`
+            .toLowerCase()
+            .replace(/[,.-]/g, ' ');
+
+          const matchesAllKeywords = queryTerms.every((term) => fullSearchableText.includes(term));
+          if (!matchesAllKeywords) return false;
         }
 
-        // Transaction Type (Buy vs Rent)
+        // 2. Transaction Type (Buy vs Rent)
         if (transactionType !== 'all' && prop.type !== transactionType) {
           return false;
         }
 
-        // Property Type (Multi-select fallback to legacy single-select if array is empty)
+        // 3. Property Type (Multi-select fallback to single-select)
         if (selectedPropertyTypes.length > 0) {
           if (!selectedPropertyTypes.includes(prop.propertyType)) {
             return false;
@@ -193,17 +209,17 @@ export default function App() {
           return false;
         }
 
-        // Min Price
+        // 4. Min Price
         if (minPrice && prop.price < parseFloat(minPrice)) {
           return false;
         }
 
-        // Max Price
+        // 5. Max Price
         if (maxPrice && prop.price > parseFloat(maxPrice)) {
           return false;
         }
 
-        // Bedrooms
+        // 6. Bedrooms
         if (bedrooms !== 'all') {
           if (bedrooms === '4+') {
             if (prop.bedrooms < 4) return false;
@@ -212,7 +228,7 @@ export default function App() {
           }
         }
 
-        // Bathrooms
+        // 7. Bathrooms
         if (bathrooms !== 'all') {
           if (bathrooms === '3+') {
             if (prop.bathrooms < 3) return false;
@@ -221,23 +237,33 @@ export default function App() {
           }
         }
 
-        // Location query
+        // 8. Specific Location Query: match terms against property's location and address
         if (locationQuery) {
-          const loc = locationQuery.toLowerCase();
-          if (!prop.location.toLowerCase().includes(loc)) return false;
+          const locTerms = locationQuery
+            .toLowerCase()
+            .replace(/[,.-]/g, ' ')
+            .split(/\s+/)
+            .filter(Boolean);
+
+          const fullLocationText = `${prop.location} ${prop.address || ''}`
+            .toLowerCase()
+            .replace(/[,.-]/g, ' ');
+
+          const matchesLocation = locTerms.every((term) => fullLocationText.includes(term));
+          if (!matchesLocation) return false;
         }
 
-        // Min Area (sqft)
+        // 9. Min Area (sqft)
         if (minArea && prop.area < parseInt(minArea)) {
           return false;
         }
 
-        // Max Area (sqft)
+        // 10. Max Area (sqft)
         if (maxArea && prop.area > parseInt(maxArea)) {
           return false;
         }
 
-        // Amenities checklist (all checked amenities must exist in the property)
+        // 11. Amenities checklist
         if (selectedAmenities.length > 0) {
           const hasAll = selectedAmenities.every((amenity) => prop.amenities.includes(amenity));
           if (!hasAll) return false;
@@ -352,47 +378,83 @@ export default function App() {
                   </p>
 
                   {/* Quick search widget (Hero Bento Search) */}
-                  <div className="w-full max-w-3xl mt-8 sm:mt-10 rounded-lg bg-white p-4 shadow-xl shadow-slate-200/50 border border-slate-200 flex flex-col md:flex-row items-stretch gap-3">
-                    {/* Search Term */}
+                  <div className="w-full max-w-4xl mt-8 sm:mt-10 rounded-xl bg-white p-3.5 sm:p-4 shadow-2xl shadow-slate-900/40 border border-slate-200/80 flex flex-col md:flex-row items-stretch gap-3">
+                    {/* Location Field */}
                     <div className="flex-1 relative flex items-center">
-                      <Search className="absolute left-3.5 h-4 w-4 text-slate-400 shrink-0" />
+                      <MapPin className="absolute left-3.5 h-4 w-4 text-blue-600 shrink-0 pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="Search location, listing title or keywords..."
+                        list="hero-location-datalist"
+                        placeholder="Location, city or neighborhood..."
+                        value={locationQuery}
+                        onChange={(e) => setLocationQuery(e.target.value)}
+                        className="w-full rounded-lg bg-slate-50 border border-slate-200 pl-10 pr-8 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 focus:outline-hidden transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+                      />
+                      {locationQuery && (
+                        <button
+                          onClick={() => setLocationQuery('')}
+                          className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title="Clear location filter"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <datalist id="hero-location-datalist">
+                        {uniqueLocations.map((loc) => (
+                          <option key={`hero-datalist-${loc}`} value={loc} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    {/* Keywords Search */}
+                    <div className="flex-1 relative flex items-center">
+                      <Search className="absolute left-3.5 h-4 w-4 text-slate-400 shrink-0 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Listing title, address or keywords..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-lg bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 focus:outline-hidden transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+                        className="w-full rounded-lg bg-slate-50 border border-slate-200 pl-10 pr-8 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 focus:outline-hidden transition-all text-slate-900 placeholder:text-slate-400 font-medium"
                       />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title="Clear keyword search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Transaction type toggle */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 bg-slate-100 p-1 rounded-lg border border-slate-200/80">
                       <button
                         onClick={() => setTransactionType('all')}
-                        className={`flex-1 md:flex-none rounded-lg py-2 px-3 text-xs font-bold border transition-all cursor-pointer ${
+                        className={`rounded-md py-1.5 px-3 text-xs font-bold transition-all cursor-pointer ${
                           transactionType === 'all'
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         All
                       </button>
                       <button
                         onClick={() => setTransactionType('sale')}
-                        className={`flex-1 md:flex-none rounded-lg py-2 px-3 text-xs font-bold border transition-all cursor-pointer ${
+                        className={`rounded-md py-1.5 px-3 text-xs font-bold transition-all cursor-pointer ${
                           transactionType === 'sale'
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         Buy
                       </button>
                       <button
                         onClick={() => setTransactionType('rent')}
-                        className={`flex-1 md:flex-none rounded-lg py-2 px-3 text-xs font-bold border transition-all cursor-pointer ${
+                        className={`rounded-md py-1.5 px-3 text-xs font-bold transition-all cursor-pointer ${
                           transactionType === 'rent'
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         Rent
@@ -407,12 +469,48 @@ export default function App() {
                           target.scrollIntoView({ behavior: 'smooth' });
                         }
                       }}
-                      className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 shadow-md shadow-blue-200 hover:shadow-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-5 shadow-md shadow-blue-200 hover:shadow-lg transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
                     >
-                      <span>Explore Portal</span>
+                      <span>Find Homes</span>
                       <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
+
+                  {/* Popular Location Chips under Hero */}
+                  {uniqueLocations.length > 0 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 max-w-3xl">
+                      <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1 mr-1">
+                        <MapPin className="h-3 w-3 text-blue-400" />
+                        <span>Popular Locations:</span>
+                      </span>
+                      {uniqueLocations.slice(0, 7).map((loc) => {
+                        const isActive = locationQuery.toLowerCase() === loc.toLowerCase();
+                        return (
+                          <button
+                            key={`hero-chip-${loc}`}
+                            onClick={() => {
+                              if (isActive) {
+                                setLocationQuery('');
+                              } else {
+                                setLocationQuery(loc);
+                                const target = document.getElementById('listings-catalog');
+                                if (target) {
+                                  target.scrollIntoView({ behavior: 'smooth' });
+                                }
+                              }
+                            }}
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition-all cursor-pointer border ${
+                              isActive
+                                ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                                : 'bg-white/10 border-white/20 text-slate-200 hover:bg-white/20 hover:text-white'
+                            }`}
+                          >
+                            {loc}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -576,17 +674,53 @@ export default function App() {
                   </div>
 
                   {/* Flat Simple Filters Toolbar */}
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 bg-slate-100/70 p-2 rounded-lg border border-slate-200">
-                    {/* Search Field */}
-                    <div className="relative flex items-center sm:col-span-2">
-                      <Search className="absolute left-3.5 h-3.5 w-3.5 text-slate-400" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2 bg-slate-100/70 p-2 rounded-lg border border-slate-200">
+                    {/* Keyword Search Field */}
+                    <div className="relative flex items-center sm:col-span-2 md:col-span-2">
+                      <Search className="absolute left-3.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="Search by keywords, title, location, or descriptive terms..."
+                        placeholder="Search title, keywords, features..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-lg bg-white border border-slate-200 pl-9 pr-3 py-2 text-xs focus:border-blue-500 focus:outline-hidden text-slate-800 font-medium"
+                        className="w-full rounded-lg bg-white border border-slate-200 pl-9 pr-7 py-2 text-xs focus:border-blue-500 focus:outline-hidden text-slate-800 font-medium"
                       />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title="Clear search"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Location Field */}
+                    <div className="relative flex items-center md:col-span-1">
+                      <MapPin className="absolute left-3 h-3.5 w-3.5 text-blue-600 pointer-events-none" />
+                      <input
+                        type="text"
+                        list="catalog-location-datalist"
+                        placeholder="All Locations..."
+                        value={locationQuery}
+                        onChange={(e) => setLocationQuery(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-6 py-2 text-xs focus:border-blue-500 text-slate-800 font-bold"
+                      />
+                      {locationQuery && (
+                        <button
+                          onClick={() => setLocationQuery('')}
+                          className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title="Clear location filter"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                      <datalist id="catalog-location-datalist">
+                        {uniqueLocations.map((loc) => (
+                          <option key={`catalog-datalist-${loc}`} value={loc} />
+                        ))}
+                      </datalist>
                     </div>
 
                     {/* Purpose selection */}
